@@ -4,7 +4,7 @@ project(MediaMonitor)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system beast)
 find_package(nlohmann_json REQUIRED)
 
 add_executable(
@@ -25,7 +25,7 @@ add_executable(
 
 add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 
-target_compile_options(media_monitor_cli PRIVATE /Ox /Ob2 /MP /W4 /WX /utf-8 /EHsc /MDd)
+target_compile_options(media_monitor_cli PRIVATE /Ox /W4 /WX /utf-8 /EHsc /MP)
 target_link_libraries(media_monitor_cli
     PRIVATE
     Boost::system
