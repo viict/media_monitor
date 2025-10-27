@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Playing - Stream Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: transparent;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        .container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .container.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .music-card {
+            background: radial-gradient(circle, rgba(15, 23, 42, 0.95), rgba(10, 15, 30, 0.95));
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 8px;
+        }
+        
+        .card-content {
+            display: flex;
+            flex: 1;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: absolute;
+            right: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4D4DFF;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-indicator.paused {
+            background: #FFA500;
+            animation: none;
+        }
+
+        .header-text {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .track-info {
+            gap: 16px;
+        }
+
+        .title {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            display: -webkit-box;
+            overflow: hidden;
+            line-height: 1.3;
+        }
+
+        .artist {
+            color: #AEC6CF;
+            font-size: 14px;
+            display: -webkit-box;
+            overflow: hidden;
+        }
+
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3399FF, #87CEEB);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="musicContainer">
+        <div class="music-card">
+            <div class="card-content">
+                <div class="header">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span class="header-text" id="statusText">NOW PLAYING</span>
+                </div>
+                
+                <div class="track-info">
+                    <div class="artist" id="trackArtist">Please wait</div>
+                    <div class="title" id="trackTitle">Connecting...</div>
+                </div>
+
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">0:00</span> /
+                    <span id="totalTime">0:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:7777');
+        const container = document.getElementById('musicContainer');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const progressFill = document.getElementById('progressFill');
+        const currentTime = document.getElementById('currentTime');
+        const totalTime = document.getElementById('totalTime');
+
+        let hideTimeout;
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateUI(data) {
+            const { title, artist, app, position, duration, is_playing, has_media } = data;
+
+            if (!has_media || !title) {
+                return;
+            }
+
+            // Update content
+            trackTitle.textContent = title;
+            trackArtist.textContent = artist || 'Unknown Artist';
+
+            // Update status
+            if (is_playing) {
+                statusIndicator.classList.remove('paused');
+                statusText.textContent = 'NOW PLAYING';
+            } else {
+                statusIndicator.classList.add('paused');
+                statusText.textContent = 'PAUSED';
+            }
+
+            // Update progress
+            const progress = duration > 0 ? (position / duration) * 100 : 0;
+            progressFill.style.width = `${progress}%`;
+            currentTime.textContent = formatTime(position);
+            totalTime.textContent = formatTime(duration);
+        }
+
+        ws.onopen = () => {
+            console.log('Connected to media monitor');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.payload) {
+                    updateUI(data.payload);
+                }
+            } catch (e) {
+                console.error('Failed to parse message:', e);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            trackTitle.textContent = 'Connection Error';
+            trackArtist.textContent = 'Unable to connect to media monitor';
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from media monitor');
+            trackTitle.textContent = 'Disconnected';
+            trackArtist.textContent = 'Reconnecting...';
+            
+            // Attempt reconnect after 3 seconds
+            setTimeout(() => location.reload(), 3000);
+        };
+    </script>
+</body>
+</html>

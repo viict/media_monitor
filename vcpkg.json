@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "boost-beast",
+    "boost-asio",
+    "nlohmann-json"
+  ]
+}

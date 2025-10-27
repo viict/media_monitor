@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Playing - Stream Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        .container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 320px; /* Adjusted width for the new layout */
+            opacity: 0;
+            transform: translateX(370px);
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .container.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .music-card {
+            background: radial-gradient(circle, rgba(40, 35, 50, 0.95), rgba(25, 20, 35, 0.95));
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #a855f7; /* Purple from image */
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .status-indicator.paused {
+            background: #f9a8d4; /* Lighter purple/pink for paused */
+            animation: none;
+        }
+
+        .header-text {
+            color: #9ca3af;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .app-badge {
+            margin-left: auto;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        
+        /* --- NEW CIRCULAR PROGRESS BAR --- */
+        .circular-progress-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring__bg {
+            stroke: rgba(255, 255, 255, 0.1);
+        }
+        
+        .progress-ring__circle {
+            stroke: #a855f7; /* Main purple color */
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.35s ease-out;
+        }
+        
+        .track-info-center {
+            position: absolute;
+            text-align: center;
+            width: 90%;
+        }
+
+        .title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .artist {
+            color: #d1d5db;
+            font-size: 14px;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .time-display {
+            font-size: 12px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        /* --- VISUALIZER --- */
+        .visualizer {
+            width: 100%;
+            display: flex;
+            gap: 4px;
+            height: 35px;
+            align-items: flex-end;
+            margin-top: 12px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, #a855f7, #c084fc); /* Purple gradient */
+            border-radius: 3px;
+            animation: wave 1.2s ease-in-out infinite alternate;
+            opacity: 0.8;
+        }
+
+        .bar:nth-child(odd) { animation-delay: 0.15s; }
+        .bar:nth-child(even) { animation-delay: 0s; }
+
+        @keyframes wave {
+            from { height: 10%; opacity: 0.4; }
+            to { height: 100%; opacity: 1; }
+        }
+
+        .visualizer.paused .bar {
+            animation: none;
+            height: 5%;
+            opacity: 0.2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="musicContainer">
+        <div class="music-card">
+            <div class="header">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="header-text" id="statusText">NOW PLAYING</span>
+                <span class="app-badge" id="appName">Spotify</span>
+            </div>
+            
+            <div class="circular-progress-container">
+                <svg class="progress-ring" width="160" height="160">
+                    <circle class="progress-ring__bg" stroke-width="8" fill="transparent" r="70" cx="80" cy="80"/>
+                    <circle class="progress-ring__circle" id="progressCircle" stroke-width="8" fill="transparent" r="70" cx="80" cy="80"/>
+                </svg>
+                <div class="track-info-center">
+                    <div class="title" id="trackTitle">Connecting...</div>
+                    <div class="artist" id="trackArtist">Please wait</div>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualizer" id="visualizer">
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:7777');
+        const container = document.getElementById('musicContainer');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const appName = document.getElementById('appName');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const currentTime = document.getElementById('currentTime');
+        const totalTime = document.getElementById('totalTime');
+        const visualizer = document.getElementById('visualizer');
+
+        // Circular progress bar elements
+        const progressCircle = document.getElementById('progressCircle');
+        const radius = progressCircle.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+        progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+        progressCircle.style.strokeDashoffset = circumference;
+
+        let hideTimeout;
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateUI(data) {
+            const { title, artist, app, position, duration, is_playing, has_media } = data;
+
+            if (!has_media || !title) {
+                hideOverlay();
+                return;
+            }
+
+            // Update content
+            trackTitle.textContent = title;
+            trackArtist.textContent = artist || 'Unknown Artist';
+            appName.textContent = app || 'Media Player';
+
+            // Update status
+            if (is_playing) {
+                statusIndicator.classList.remove('paused');
+                statusText.textContent = 'NOW PLAYING';
+                visualizer.classList.remove('paused');
+            } else {
+                statusIndicator.classList.add('paused');
+                statusText.textContent = 'PAUSED';
+                visualizer.classList.add('paused');
+            }
+
+            // Update progress
+            const progress = duration > 0 ? (position / duration) * 100 : 0;
+            const offset = circumference - (progress / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+
+            currentTime.textContent = formatTime(position);
+            totalTime.textContent = formatTime(duration);
+        }
+
+        function showOverlay() {
+            clearTimeout(hideTimeout);
+            container.classList.add('visible');
+            hideTimeout = setTimeout(hideOverlay, 15000); // Hide after 15 seconds
+        }
+
+        function hideOverlay() {
+            container.classList.remove('visible');
+        }
+
+        ws.onopen = () => {
+            console.log('Connected to media monitor');
+            showOverlay();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.payload) {
+                    updateUI(data.payload);
+                }
+               
+                if (data.event_name === "track_changed" || data.event_name === "session_changed") {
+                    showOverlay();
+                }
+            } catch (e) {
+                console.error('Failed to parse message:', e);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            trackTitle.textContent = 'Connection Error';
+            trackArtist.textContent = 'Unable to connect';
+            showOverlay();
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from media monitor');
+            trackTitle.textContent = 'Disconnected';
+            trackArtist.textContent = 'Reconnecting...';
+            showOverlay();
+            setTimeout(() => location.reload(), 3000);
+        };
+    </script>
+</body>
+</html>

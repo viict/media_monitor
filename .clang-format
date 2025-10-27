@@ -1,0 +1,32 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+TabWidth: 2
+PointerAlignment: Left
+UseTab: Never
+ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
+BreakConstructorInitializers: AfterColon
+
+SortIncludes: true
+IncludeCategories:
+  # Category 1: The most important header, windows.h, comes first.
+  - Regex: "^<windows.h>"
+    Priority: 1
+
+  # Category 2: All other system headers with angle brackets <...>.
+  # This will include <shellapi.h>, <string>, <vector>, etc.
+  - Regex: "^<.*>"
+    Priority: 2
+
+  # Category 3: All local project headers with quotes "...".
+  - Regex: '^".*>'
+    Priority: 3
+
+NamespaceIndentation: All
+SpaceBeforeParens: ControlStatements
+AllowShortLambdasOnASingleLine: All
+AlwaysBreakTemplateDeclarations: Yes
