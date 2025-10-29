@@ -5,6 +5,15 @@ A lightweight Windows application that monitors currently playing media across d
 > This app started as a study on Windows C++ API's.
 > The goal is to enhance this with other functionalities that requires audio/media API's in Windows.
 
+## Windows Defender False Positive
+
+As a opensource and non-funded project I don't have funds to do code signing and due to that this project relies on
+Microsoft whitelisting protocol.
+
+Under each release there will be an attached VirusTotal scan pointing to the current GitHub release executable.
+
+> An alternative for the false positives is to download the source code and build it locally.
+
 ## AI usage
 
 Code is not written by AI and it has been used as guidance and overall project management, like:
